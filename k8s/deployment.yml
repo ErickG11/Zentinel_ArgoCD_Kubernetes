@@ -53,7 +53,7 @@ spec:
             # Versión que reporta /api/system/info y se ve en el panel /estado.
             # Cambiarla en Git es la forma más rápida de demostrar GitOps.
             - name: APP_VERSION
-              value: "1.0.0"
+              value: "1.0.1"
             - name: APP_ENV
               value: "production"
             # Namespace real del Pod, inyectado por la API de Kubernetes (Downward API).
