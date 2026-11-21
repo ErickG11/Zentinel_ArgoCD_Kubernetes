@@ -1,0 +1,10 @@
+# Lista blanca: solo server/ y web/ entran al contexto (excluye restos y artefactos locales).
+*
+!server
+!web
+**/node_modules
+**/dist
+**/coverage
+**/.eslintcache
+**/*.log
+**/.env*
