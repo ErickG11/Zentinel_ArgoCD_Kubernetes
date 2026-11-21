@@ -157,7 +157,7 @@ Tras ~60 s de estabilización, el HPA baja 1 Pod cada 30 s hasta volver a **2**.
 
 **El HPA muestra `<unknown>/50%`.** Metrics Server aún no tiene datos o no está activo. Revisa `kubectl top nodes` y `kubectl -n kube-system get pods | grep metrics-server`; si hace falta, `minikube addons enable metrics-server` y espera 1–2 minutos. Los Pods deben tener `resources.requests.cpu` (ya está). Diagnóstico: `kubectl -n zentinel describe hpa zentinel-store`.
 
-**`ImagePullBackOff` / `ErrImagePull`.** Confirma que no queda el marcador `__DOCKERHUB_USER__` en `k8s/deployment.yml` (ejecuta `configure.sh` y haz push), que el usuario, el nombre y el tag coinciden con lo publicado y que el repositorio de Docker Hub es público. Diagnóstico: `kubectl -n zentinel describe pod <pod>`.
+**`ImagePullBackOff` / `ErrImagePull`.** Confirma que no queda el marcador `erickg10` en `k8s/deployment.yml` (ejecuta `configure.sh` y haz push), que el usuario, el nombre y el tag coinciden con lo publicado y que el repositorio de Docker Hub es público. Diagnóstico: `kubectl -n zentinel describe pod <pod>`.
 
 **El NodePort no responde con minikube y el driver docker.** En macOS/Windows la IP de minikube no es accesible desde el host: usa `minikube service zentinel-store -n zentinel --url` y deja esa terminal abierta. Alternativa: `kubectl -n zentinel port-forward svc/zentinel-store 8081:80`.
 

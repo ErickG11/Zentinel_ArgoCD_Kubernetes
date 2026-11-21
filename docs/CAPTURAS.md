@@ -23,4 +23,4 @@ Recomendaciones:
 
 - Captura la pantalla completa para que se vean la hora y la terminal.
 - Para las capturas 12 y 13, usa dos terminales (`get hpa -w` y `get pods -w`) en la misma pantalla.
-- Cambia `<usuario>` por tu usuario real y verifica que los marcadores `__DOCKERHUB_USER__` y `ErickG11` ya fueron reemplazados con `./scripts/configure.sh`.
+- Cambia `<usuario>` por tu usuario real y verifica que los marcadores `erickg10` y `ErickG11` ya fueron reemplazados con `./scripts/configure.sh`.

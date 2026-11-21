@@ -41,8 +41,8 @@ spec:
       containers:
         - name: zentinel-store
           # Tag fijo (nunca latest): Git describe exactamente lo que corre en el clúster.
-          # __DOCKERHUB_USER__ se reemplaza con scripts/configure.sh
-          image: docker.io/__DOCKERHUB_USER__/zentinel-store:1.0.0
+          # erickg10 se reemplaza con scripts/configure.sh
+          image: docker.io/erickg10/zentinel-store:1.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http # El Service y las sondas referencian este nombre
