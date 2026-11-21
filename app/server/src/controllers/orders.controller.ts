@@ -7,6 +7,7 @@ import {
   PAYMENT_METHODS,
   SHIPPING_BY_CITY,
   createOrder,
+  priceOrder,
   verifyOrder,
   type OrderInput,
 } from '../services/orders';
@@ -40,4 +41,13 @@ export const options = (_req: Request, res: Response) => {
     paymentMethods: PAYMENT_METHODS,
     ivaRate: IVA_RATE,
   });
+};
+
+/** Cotización: mismos cálculos que el pedido real, sin crear ni firmar nada. */
+export const quote = (req: Request, res: Response) => {
+  const { items, city } = req.body as {
+    items: OrderInput['items'];
+    city: OrderInput['customer']['city'];
+  };
+  res.json(priceOrder(items, city));
 };

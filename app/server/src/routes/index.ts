@@ -5,7 +5,13 @@ import * as catalog from '../controllers/catalog.controller';
 import * as orders from '../controllers/orders.controller';
 import * as system from '../controllers/system.controller';
 import { validateBody } from '../middleware/validate';
-import { orderInputSchema } from '../services/orders';
+import { CITIES, orderInputSchema } from '../services/orders';
+import { z } from 'zod';
+
+const quoteSchema = z.object({
+  items: orderInputSchema.shape.items,
+  city: z.enum(CITIES).default('Quito'),
+});
 
 /** Rutas de la API (montadas bajo /api). */
 export function apiRouter(config: Config): Router {
@@ -22,6 +28,7 @@ export function apiRouter(config: Config): Router {
   r.post('/builder/recommend', validateBody(builder.recommendSchema), builder.recommend(config));
 
   r.get('/orders/options', orders.options);
+  r.post('/orders/quote', validateBody(quoteSchema), orders.quote);
   r.post('/orders', validateBody(orderInputSchema), orders.create(config));
   r.get('/orders/verify/:token', orders.verify(config));
 

@@ -138,6 +138,15 @@ describe('pedidos', () => {
     expect(v.body.valid).toBe(false);
   });
 
+  it('cotiza con los mismos cálculos que el pedido real', async () => {
+    const q = await request(app)
+      .post('/api/orders/quote')
+      .send({ items: body.items, city: 'Quito' });
+    expect(q.status).toBe(200);
+    const created = await request(app).post('/api/orders').send(body);
+    expect(q.body.totals).toEqual(created.body.order.totals);
+  });
+
   it('valida datos del cliente', async () => {
     const r = await request(app)
       .post('/api/orders')
