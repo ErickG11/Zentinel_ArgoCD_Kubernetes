@@ -19,7 +19,7 @@
 
 ```mermaid
 flowchart LR
-    Dev([Desarrollador]) -- git push --> GH[(GitHub público<br/>zentinel-store-gitops<br/>rama main · k8s/)]
+    Dev([Desarrollador]) -- git push --> GH[(GitHub público<br/>Zentinel_ArgoCD_Kubernetes<br/>rama main · k8s/)]
     CI[GitHub Actions<br/>lint · tests · imagen] -. tag vX.Y.Z .-> DH[(Docker Hub<br/>zentinel-store:1.0.0)]
     GH --> CI
     subgraph K8S [Clúster Kubernetes · minikube]
@@ -98,12 +98,12 @@ Variables de entorno del servidor: `PORT`, `APP_VERSION`, `APP_ENV`, `POD_NAMESP
 
    El repositorio de la imagen debe ser **público**.
 
-2. **Crea el repositorio público** `zentinel-store-gitops` en GitHub, reemplaza los marcadores y sube el código:
+2. **Crea el repositorio público** `Zentinel_ArgoCD_Kubernetes` en GitHub, reemplaza los marcadores y sube el código:
 
    ```bash
    ./scripts/configure.sh <DOCKERHUB_USER> <GITHUB_USER>
    git add -A && git commit -m "chore: configura usuarios"
-   git remote add origin https://github.com/<GITHUB_USER>/zentinel-store-gitops.git
+   git remote add origin https://github.com/<GITHUB_USER>/Zentinel_ArgoCD_Kubernetes.git
    git push -u origin main
    ```
 

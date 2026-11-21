@@ -4,7 +4,7 @@ Guarda cada captura en `docs/screenshots/` con el **nombre exacto** indicado. **
 
 | # | Archivo | Qué mostrar | Comando o pantalla |
 |---|---|---|---|
-| 1 | `01-repo-github-k8s.png` | Repositorio público en GitHub con la carpeta `k8s/` (solo 3 archivos) | `https://github.com/<usuario>/zentinel-store-gitops/tree/main/k8s` |
+| 1 | `01-repo-github-k8s.png` | Repositorio público en GitHub con la carpeta `k8s/` (solo 3 archivos) | `https://github.com/<usuario>/Zentinel_ArgoCD_Kubernetes/tree/main/k8s` |
 | 2 | `02-kubectl-get-nodes-top.png` | Nodo Ready y métricas de CPU/memoria | `kubectl get nodes` y `kubectl top nodes` |
 | 3 | `02-metrics-server-top-nodes.png` | Metrics Server funcionando | `kubectl -n kube-system get pods \| grep metrics-server` y `kubectl top nodes` |
 | 4 | `03-argocd-synced-healthy.png` | UI de Argo CD con la app `zentinel-store` en **Synced** y **Healthy** y el árbol de recursos (Deployment, ReplicaSet, Pods, Service, HPA) | `https://localhost:8080` → aplicación `zentinel-store` |

@@ -15,7 +15,7 @@ spec:
   # Fuente de verdad: repositorio Git público, rama main, carpeta k8s/.
   # ErickG11 se reemplaza con scripts/configure.sh
   source:
-    repoURL: https://github.com/ErickG11/zentinel-store-gitops.git
+    repoURL: https://github.com/ErickG11/Zentinel_ArgoCD_Kubernetes.git
     targetRevision: main
     path: k8s
 

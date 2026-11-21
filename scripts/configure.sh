@@ -36,4 +36,4 @@ done < <( (git ls-files; git ls-files --others --exclude-standard) | sort -u )
 
 ok "Listo: $changed archivo(s) actualizados."
 ok "Imagen:      docker.io/$DOCKERHUB_USER/zentinel-store:1.0.0"
-ok "Repositorio: https://github.com/$GITHUB_USER/zentinel-store-gitops.git"
+ok "Repositorio: https://github.com/$GITHUB_USER/Zentinel_ArgoCD_Kubernetes.git"

@@ -4,7 +4,7 @@
 **Materia:** Automatización de la Configuración Continua
 **Institución:** Universidad de las Américas (UDLA)
 **Fecha:** 21 de noviembre de 2026
-**Repositorio:** https://github.com/ErickG11/zentinel-store-gitops
+**Repositorio:** https://github.com/ErickG11/Zentinel_ArgoCD_Kubernetes
 **Imagen:** `docker.io/__DOCKERHUB_USER__/zentinel-store:1.0.0`
 
 ---
@@ -121,7 +121,7 @@ GitOps reduce el despliegue a un `git push`: Argo CD aplica, vigila y corrige el
 
 ## 10. Enlaces
 
-- Repositorio: https://github.com/ErickG11/zentinel-store-gitops
+- Repositorio: https://github.com/ErickG11/Zentinel_ArgoCD_Kubernetes
 - Imagen: https://hub.docker.com/r/__DOCKERHUB_USER__/zentinel-store
 
 [CAPTURA: 01-repo-github-k8s.png]
