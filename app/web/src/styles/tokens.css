@@ -1,0 +1,155 @@
+/*
+ * ZENTINEL LABS — DESIGN TOKENS
+ * ------------------------------------------------------------------
+ * ÚNICA fuente de verdad de la marca. Para re-marcar la tienda basta
+ * con editar este archivo: colores, tipografías, radios, sombras y
+ * movimiento. Ningún otro CSS contiene colores ni fuentes fijas.
+ */
+
+/* Tipografías auto-hospedadas (@fontsource): sin peticiones externas. */
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/jetbrains-mono';
+
+:root {
+  /* ── Marca ───────────────────────────────────────── */
+  --brand-name: 'Zentinel';
+  --accent-h: 168;
+  --accent: hsl(var(--accent-h) 90% 55%);
+  --accent-strong: hsl(var(--accent-h) 90% 42%);
+  --accent-contrast: #04120e; /* texto sobre fondo de acento */
+  --accent-2: #8b6cff; /* acento secundario (violeta) */
+  --accent-glow: hsl(var(--accent-h) 90% 55% / 0.35);
+
+  /* ── Tipografía ──────────────────────────────────── */
+  --font-sans:
+    'Space Grotesk Variable', 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+  --fs-2xl: clamp(2rem, 1.4rem + 2.6vw, 3.25rem);
+  --fs-hero: clamp(2.4rem, 1.4rem + 4.6vw, 4.6rem);
+
+  /* ── Espaciado, radios y layout ──────────────────── */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+  --sp-8: 4.5rem;
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --container: 1240px;
+  --gutter: clamp(1rem, 4vw, 2rem);
+  --header-h: 68px;
+
+  /* ── Movimiento ──────────────────────────────────── */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: 140ms;
+  --t: 240ms;
+
+  /* ── Semánticos (iguales en ambos temas) ─────────── */
+  --ok: #2ef2a0;
+  --warn: #ffb020;
+  --danger: #ff5470;
+  --info: #5cb8ff;
+}
+
+/* ── Tema oscuro (por defecto) ─────────────────────── */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0a0d12;
+  --bg-elev: #0f141b;
+  --surface: #121821;
+  --surface-2: #19212c;
+  --border: #243040;
+  --border-strong: #35465c;
+  --text: #e9eef5;
+  --text-muted: #93a1b4;
+  --text-faint: #66758a;
+  --grid-line: rgb(120 150 190 / 0.06);
+  --shadow: 0 10px 40px rgb(0 0 0 / 0.45);
+  --shadow-sm: 0 2px 10px rgb(0 0 0 / 0.35);
+  --scrim: rgb(4 7 11 / 0.7);
+  --on-ok: #04120b;
+}
+
+/* ── Tema claro ────────────────────────────────────── */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --accent: hsl(var(--accent-h) 85% 36%);
+  --accent-strong: hsl(var(--accent-h) 85% 28%);
+  --accent-contrast: #ffffff;
+  --accent-glow: hsl(var(--accent-h) 85% 36% / 0.22);
+  --accent-2: #6a4bf0;
+  --bg: #f4f7fb;
+  --bg-elev: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #eef2f8;
+  --border: #d6dee9;
+  --border-strong: #b6c3d4;
+  --text: #0e1621;
+  --text-muted: #4a5a70;
+  --text-faint: #75849a;
+  --grid-line: rgb(30 60 110 / 0.06);
+  --shadow: 0 10px 40px rgb(30 50 90 / 0.14);
+  --shadow-sm: 0 2px 10px rgb(30 50 90 / 0.1);
+  --scrim: rgb(14 22 33 / 0.5);
+  --ok: #08875a;
+  --warn: #b26b00;
+  --danger: #d6264a;
+  --info: #1769c2;
+  --on-ok: #ffffff;
+}
+
+/* Respeta la preferencia del sistema cuando el usuario no eligió tema. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --accent: hsl(var(--accent-h) 85% 36%);
+    --accent-strong: hsl(var(--accent-h) 85% 28%);
+    --accent-contrast: #ffffff;
+    --accent-glow: hsl(var(--accent-h) 85% 36% / 0.22);
+    --accent-2: #6a4bf0;
+    --bg: #f4f7fb;
+    --bg-elev: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #eef2f8;
+    --border: #d6dee9;
+    --border-strong: #b6c3d4;
+    --text: #0e1621;
+    --text-muted: #4a5a70;
+    --text-faint: #75849a;
+    --grid-line: rgb(30 60 110 / 0.06);
+    --shadow: 0 10px 40px rgb(30 50 90 / 0.14);
+    --shadow-sm: 0 2px 10px rgb(30 50 90 / 0.1);
+    --scrim: rgb(14 22 33 / 0.5);
+    --ok: #08875a;
+    --warn: #b26b00;
+    --danger: #d6264a;
+    --info: #1769c2;
+    --on-ok: #ffffff;
+  }
+}
+
+/* Movimiento reducido: sin animaciones para quien lo pide. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 0ms;
+    --t: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
