@@ -13,9 +13,9 @@ spec:
   project: default
 
   # Fuente de verdad: repositorio Git público, rama main, carpeta k8s/.
-  # __GITHUB_USER__ se reemplaza con scripts/configure.sh
+  # ErickG11 se reemplaza con scripts/configure.sh
   source:
-    repoURL: https://github.com/__GITHUB_USER__/zentinel-store-gitops.git
+    repoURL: https://github.com/ErickG11/zentinel-store-gitops.git
     targetRevision: main
     path: k8s
 
