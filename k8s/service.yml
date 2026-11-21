@@ -1,0 +1,22 @@
+# Service NodePort: expone la tienda fuera del clúster y balancea las conexiones
+# entre todos los Pods Ready (kube-proxy elige un Pod por conexión TCP).
+apiVersion: v1
+kind: Service
+metadata:
+  name: zentinel-store
+  namespace: zentinel
+  labels:
+    app.kubernetes.io/name: zentinel-store
+    app.kubernetes.io/part-of: zentinel-labs
+spec:
+  type: NodePort
+  # Idéntico al selector del Deployment: así el Service encuentra los Pods.
+  selector:
+    app.kubernetes.io/name: zentinel-store
+    app.kubernetes.io/part-of: zentinel-labs
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80          # Puerto del Service dentro del clúster
+      targetPort: http  # Puerto con nombre "http" (3000) del contenedor
+      nodePort: 30080   # Puerto fijo en el nodo (rango válido 30000-32767)

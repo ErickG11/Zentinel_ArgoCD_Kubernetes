@@ -1,0 +1,44 @@
+# Application de Argo CD: le dice a Argo QUÉ repositorio/ruta vigilar y DÓNDE desplegarlo.
+# Se aplica una sola vez (scripts/03-deploy-app.sh); desde entonces todo cambio en
+# k8s/ de la rama main se sincroniza solo con el clúster.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: zentinel-store
+  namespace: argocd # Las Application siempre viven en el namespace de Argo CD
+  # Al borrar la Application, Argo elimina también los recursos que desplegó.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  # Fuente de verdad: repositorio Git público, rama main, carpeta k8s/.
+  # __GITHUB_USER__ se reemplaza con scripts/configure.sh
+  source:
+    repoURL: https://github.com/__GITHUB_USER__/zentinel-store-gitops.git
+    targetRevision: main
+    path: k8s
+
+  # Destino: el propio clúster donde corre Argo CD.
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: zentinel
+
+  syncPolicy:
+    # Automated Sync (requisito del proyecto).
+    automated:
+      prune: true    # Borra del clúster lo que se elimine de Git
+      selfHeal: true # Revierte cambios manuales hechos en el clúster
+    syncOptions:
+      - CreateNamespace=true          # Crea el namespace zentinel (no va en k8s/)
+      - RespectIgnoreDifferences=true # Aplica ignoreDifferences también al sincronizar, no solo al comparar
+
+  # El HPA modifica spec.replicas del Deployment en tiempo de ejecución, mientras que Git
+  # declara replicas: 2. Sin esto, Argo vería el Deployment como OutOfSync y, con selfHeal,
+  # volvería a 2 réplicas en plena prueba de carga, peleándose con el HPA.
+  # Ignorando /spec/replicas, el HPA es el único dueño de ese campo.
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

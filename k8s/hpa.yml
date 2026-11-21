@@ -1,0 +1,42 @@
+# HorizontalPodAutoscaler: ajusta las réplicas del Deployment según la CPU.
+# Requiere Metrics Server (minikube addons enable metrics-server) y que los
+# Pods definan resources.requests.cpu (definido en deployment.yml: 100m).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: zentinel-store
+  namespace: zentinel
+  labels:
+    app.kubernetes.io/name: zentinel-store
+    app.kubernetes.io/part-of: zentinel-labs
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: zentinel-store
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50 # Sobre el request (100m): escala al superar ~50m de media por Pod
+  behavior:
+    # Sube rápido: sin ventana de estabilización, hasta +2 Pods cada 30 s.
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 30
+      selectPolicy: Max
+    # Baja con calma: 60 s estables (el valor por defecto es 300 s) para ver el ciclo completo
+    # de la demo en pocos minutos, retirando 1 Pod cada 30 s.
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 30

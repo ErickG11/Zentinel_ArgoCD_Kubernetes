@@ -1,0 +1,126 @@
+# Deployment de Zentinel Store (tienda de tecnología de Zentinel Labs).
+# Argo CD sincroniza este archivo desde Git: cualquier cambio aquí se refleja
+# en el clúster y cualquier cambio manual en el clúster se revierte (selfHeal).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zentinel-store
+  namespace: zentinel # Lo crea Argo CD con CreateNamespace=true
+  labels:
+    app.kubernetes.io/name: zentinel-store
+    app.kubernetes.io/part-of: zentinel-labs
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  # Valor inicial. Cuando el HPA actúa, él es el dueño de este campo
+  # (por eso la Application ignora /spec/replicas).
+  replicas: 2
+
+  # Debe coincidir EXACTAMENTE con los labels del template de Pods.
+  # Solo labels inmutables (sin "version"): así la versión puede cambiar sin recrear el Deployment.
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zentinel-store
+      app.kubernetes.io/part-of: zentinel-labs
+
+  # Actualización sin caída: levanta 1 Pod extra y no retira ninguno hasta que esté Ready.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zentinel-store
+        app.kubernetes.io/part-of: zentinel-labs
+        app.kubernetes.io/version: "1.0.0"
+    spec:
+      # Tiempo para el apagado ordenado: la app pone /readyz en 503 y drena conexiones.
+      terminationGracePeriodSeconds: 20
+      containers:
+        - name: zentinel-store
+          # Tag fijo (nunca latest): Git describe exactamente lo que corre en el clúster.
+          # __DOCKERHUB_USER__ se reemplaza con scripts/configure.sh
+          image: docker.io/__DOCKERHUB_USER__/zentinel-store:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http # El Service y las sondas referencian este nombre
+              containerPort: 3000
+              protocol: TCP
+
+          env:
+            # Versión que reporta /api/system/info y se ve en el panel /estado.
+            # Cambiarla en Git es la forma más rápida de demostrar GitOps.
+            - name: APP_VERSION
+              value: "1.0.0"
+            - name: APP_ENV
+              value: "production"
+            # Namespace real del Pod, inyectado por la API de Kubernetes (Downward API).
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # Sin límite de peticiones por defecto: el balanceo y la prueba de carga
+            # del HPA no deben toparse con el rate limit de la app.
+            - name: RATE_LIMIT_ENABLED
+              value: "false"
+            # Tope de combinaciones que evalúa el Asistente por petición. Controla el costo de
+            # CPU del endpoint /api/builder/recommend, que es lo que dispara al HPA en la demo.
+            - name: RECOMMEND_MAX_COMBINATIONS
+              value: "50000"
+            # ── Firma de comprobantes ───────────────────────────────────────────────
+            # Todas las réplicas necesitan la MISMA clave para validar comprobantes emitidos
+            # por otra réplica (diseño stateless). Este valor es PÚBLICO y solo sirve para la
+            # demo académica: NO es un secreto.
+            # En producción real la clave se inyectaría con un Secret creado FUERA de Git:
+            #   valueFrom: { secretKeyRef: { name: zentinel-order-key, key: signing-key } }
+            - name: ORDER_SIGNING_KEY
+              value: "zentinel-demo-public-key-not-a-secret"
+
+          # requests: base del scheduler y del HPA (50 % de utilización = 50m por Pod).
+          # limits: techo duro; 500m deja margen para que un Pod sature antes de escalar.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+          # Startup: da hasta 30 s (30 × 1 s) para arrancar antes de activar liveness/readiness.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 1
+            failureThreshold: 30
+
+          # Liveness: si /healthz falla repetidamente, el kubelet reinicia el contenedor.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          # Readiness: el Pod solo recibe tráfico del Service mientras /readyz responde 200
+          # (devuelve 503 durante el apagado para que el Service lo retire a tiempo).
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          # Endurecimiento: no-root (UID 1000 = usuario "node"), sin escalada de privilegios
+          # y sin capabilities de Linux. runAsUser numérico porque Kubernetes no puede
+          # verificar runAsNonRoot con un usuario por nombre.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
