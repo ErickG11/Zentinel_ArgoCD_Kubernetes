@@ -1,172 +1,189 @@
-# Zentinel Store — GitOps con Argo CD en Kubernetes
+# Zentinel Store
 
-**Zentinel Store** es la tienda online de tecnología de **Zentinel Labs**: una aplicación web real (catálogo de 83 productos, búsqueda difusa, comparador, Armador de PC con compatibilidad en vivo, Asistente que genera builds, carrito, checkout y comprobantes firmados) desplegada en Kubernetes con **GitOps**: este repositorio es la única fuente de verdad y **Argo CD** mantiene el clúster sincronizado.
+Tienda de tecnología de Zentinel Labs, desplegada con GitOps (Argo CD) sobre Kubernetes.
 
-> Proyecto individual de *Automatización de la Configuración Continua* — Erick Mateo Granda Delgado — UDLA.
+## Descripción
 
-## Funciones diferenciales
-
-| Función | Qué hace |
-|---|---|
-| **Armador de PC** | Verifica en vivo socket CPU↔placa, tipo de RAM, formato placa↔case, largo de GPU↔case, cooler, ranuras M.2, consumo vs fuente (con nivel de holgura) y cuellos de botella CPU/GPU. El selector de piezas marca cada opción como compatible o no. |
-| **Asistente Zentinel** | Recibe presupuesto, uso (gaming, video, programación, ofimática, streaming) y preferencias. Busca las mejores builds compatibles con **branch and bound** (poda por presupuesto, por compatibilidad y por cota superior de puntaje) y explica *por qué* y *qué sacrifica* cada una. Es CPU real, acotada por `RECOMMEND_MAX_COMBINATIONS`. |
-| **Búsqueda difusa** | Tolera errores de tipeo (distancia de Damerau-Levenshtein), ignora tildes, expande sinónimos (`ram`=`memoria`) y rankea por relevancia ponderando nombre, marca, tags y descripción. |
-| **Comparador** | Hasta 4 productos de la misma categoría, con mejor/peor valor por especificación. |
-| **Comprobante firmado** | Cada pedido devuelve un código `ZS-XXXXXX` y un token firmado con HMAC-SHA256 que cualquier réplica puede validar. Sin base de datos. |
-| **Panel /estado** | Sondea `/api/system/info` cada 2 s y muestra qué Pod responde, su versión, namespace y uptime, con un contador por Pod: evidencia visual del balanceo del Service. |
+- Aplicación full-stack: backend Node 20 + TypeScript + Express, frontend React 18 + Vite.
+- 83 productos, 14 categorías y 9 reglas de compatibilidad.
+- Búsqueda tolerante a errores de tipeo, comparador, armador de PC con compatibilidad en vivo, recomendador de builds (`/api/builder/recommend`, intensivo en CPU), carrito y checkout con comprobante firmado con HMAC (sin estado).
+- Página `/estado` que muestra qué Pod atiende cada petición.
 
 ## Arquitectura
 
-```mermaid
-flowchart LR
-    Dev([Desarrollador]) -- git push --> GH[(GitHub público<br/>Zentinel_ArgoCD_Kubernetes<br/>rama main · k8s/)]
-    CI[GitHub Actions<br/>lint · tests · imagen] -. tag vX.Y.Z .-> DH[(Docker Hub<br/>zentinel-store:1.0.0)]
-    GH --> CI
-    subgraph K8S [Clúster Kubernetes · minikube]
-        direction LR
-        ARGO[Argo CD<br/>namespace argocd<br/>Automated Sync · prune · selfHeal]
-        subgraph NS [namespace zentinel]
-            SVC[Service NodePort<br/>80 → http:3000 · 30080]
-            DEP[Deployment zentinel-store<br/>2 réplicas · RollingUpdate]
-            P1[Pod]
-            P2[Pod]
-            HPA[HPA · min 2 · max 5<br/>CPU 50 %]
-            SVC --> P1
-            SVC --> P2
-            DEP --> P1
-            DEP --> P2
-            HPA -- ajusta réplicas --> DEP
-        end
-        MS[Metrics Server] -- CPU de los Pods --> HPA
-        ARGO -- aplica k8s/ --> NS
-    end
-    ARGO -- sondea el repo --> GH
-    DH -- pull de la imagen --> P1
-    User([Usuario]) -- HTTP --> SVC
 ```
-
-**Flujo GitOps:** `git push` → Argo CD detecta el cambio en `k8s/` → sincroniza Deployment, Service y HPA → el HPA, alimentado por Metrics Server, ajusta las réplicas según la CPU.
-
-## Decisión de arquitectura: aplicación stateless
-
-La aplicación **no usa base de datos ni guarda estado en el Pod**. Es una condición para escalar horizontalmente sin inconsistencias entre réplicas: cualquier Pod puede atender cualquier petición y el HPA puede crear o destruir Pods sin perder datos.
-
-- **Catálogo:** inmutable, validado con zod al arrancar e idéntico en todas las réplicas.
-- **Carrito y comparador:** viven en el navegador (`localStorage`).
-- **Pedidos:** no se almacenan. El servidor calcula los totales (subtotal, descuento por combo del 5 %, IVA 15 %, envío por ciudad) y devuelve un **comprobante firmado**: un token `base64url(pedido).base64url(HMAC-SHA256)` que contiene el pedido completo. `GET /api/orders/verify/:token` recalcula la firma y muestra el pedido en **cualquier réplica** que comparta la clave.
-- **Clave de firma (`ORDER_SIGNING_KEY`):** si no existe, cada Pod genera una clave efímera y lo avisa en logs; entonces solo ese Pod validaría sus comprobantes. Para que la validación funcione entre réplicas, todas deben compartir la misma clave. En este proyecto el Deployment define un **valor público de demostración** (no es un secreto). En producción real se inyectaría con un **Secret creado fuera de Git** (`secretKeyRef`). El token está firmado, no cifrado.
+GitHub (rama main, carpeta k8s/)
+        │  Argo CD sondea el repositorio
+        ▼
+Argo CD (ns argocd) ── Automated Sync ──► Clúster Kubernetes (ns zentinel)
+                                          ┌───────────────────────────────────┐
+ Usuario ──► Service NodePort :30080 ────►│ Deployment (2 a 5 Pods)           │
+                                          │        ▲                          │
+ Docker Hub ── pull de la imagen ────────►│        │ ajusta réplicas          │
+                                          │ HPA (CPU 50 %)                    │
+                                          └───────────────────────────────────┘
+                                                   ▲
+                                          Metrics Server (CPU de los Pods)
+```
 
 ## Estructura del repositorio
 
 ```
 .
-├── app/
-│   ├── server/        # API Node 20 + TypeScript + Express (routes → controllers → services → data)
-│   ├── web/           # Frontend React 18 + Vite + TypeScript (design tokens en src/styles/tokens.css)
-│   └── Dockerfile     # Multi-stage, no-root, HEALTHCHECK
-├── k8s/               # SOLO deployment.yml, service.yml, hpa.yml
-├── argocd/            # application.yml (Application de Argo CD)
-├── scripts/           # configure.sh, 01–04, 99-cleanup.sh
-├── docs/              # INFORME.md, CAPTURAS.md, screenshots/
-└── .github/workflows/ci.yml
+├── .github/workflows/   # CI
+├── app/                 # server (API) y web (frontend), Dockerfile
+├── argocd/
+│   └── application.yml  # Application de Argo CD
+├── docs/
+├── k8s/
+│   ├── deployment.yml
+│   ├── service.yml
+│   └── hpa.yml
+├── scripts/             # utilidades de clúster y prueba de carga
+└── README.md
 ```
 
-## Prerrequisitos
+## Manifiestos
 
-Docker, minikube, kubectl, una cuenta de Docker Hub y una de GitHub. Para desarrollo local: Node.js 20 o superior. minikube necesita 2 CPUs y 4 GB de RAM libres.
+**`k8s/deployment.yml`**
 
-## Desarrollo local
+| Aspecto | Valor |
+|---|---|
+| Imagen | `docker.io/erickg10/zentinel-store:1.0.0` (tag fijo) |
+| Réplicas | 2 |
+| Estrategia | RollingUpdate, `maxSurge: 1`, `maxUnavailable: 0` |
+| Recursos | requests 100m CPU / 128Mi; limits 500m / 256Mi |
+| Probes | startup y liveness en `/healthz`; readiness en `/readyz` |
+| Seguridad | usuario no root (UID 1000), sin escalado de privilegios, capabilities `DROP ALL` |
+
+**`k8s/service.yml`**
+
+| Aspecto | Valor |
+|---|---|
+| Tipo | NodePort |
+| Puertos | 80 → contenedor 3000 |
+| nodePort | 30080 |
+
+**`k8s/hpa.yml`**
+
+| Aspecto | Valor |
+|---|---|
+| API | `autoscaling/v2` |
+| Réplicas | mín. 2, máx. 5 |
+| Métrica | CPU al 50 % sobre el request |
+| scaleUp | hasta +2 Pods cada 30 s, sin estabilización |
+| scaleDown | −1 Pod cada 30 s, con 60 s de estabilización |
+
+## Decisiones de diseño
+
+- **Tag fijo en lugar de `:latest`:** el despliegue es reproducible y Git describe exactamente lo que corre.
+- **Aplicación sin estado:** los comprobantes se firman con HMAC, así cualquier réplica puede validarlos y la app escala horizontalmente sin problemas.
+- **Request de CPU bajo (100m):** el HPA reacciona con poca carga y el escalado se puede observar.
+- **`ignoreDifferences` sobre `/spec/replicas`:** Argo CD no compite con el HPA por el número de réplicas.
+- **`ORDER_SIGNING_KEY` del manifiesto:** es un valor público de demostración, no un secreto. En producción iría en un Secret fuera de Git.
+- **Conexión cerrada en `/api/system/info`:** el Service reparte las peticiones entre Pods y el reparto se ve en `/estado`.
+
+## Despliegue paso a paso
+
+**Requisitos:** Docker, minikube y kubectl.
 
 ```bash
-cd app/server && npm ci && npm test            # 61 tests
-cd ../web && npm ci && npm test && npm run build   # 18 tests + build a app/web/dist
-cd ../server && npm run build && PORT=3000 npm start   # sirve API + web en http://localhost:3000
+git clone https://github.com/<tu-usuario>/Zentinel_ArgoCD_Kubernetes.git
+cd Zentinel_ArgoCD_Kubernetes
 ```
 
-Variables de entorno del servidor: `PORT`, `APP_VERSION`, `APP_ENV`, `POD_NAMESPACE`, `GIT_COMMIT`, `LOG_LEVEL`, `RATE_LIMIT_ENABLED`, `RATE_LIMIT_MAX`, `RECOMMEND_MAX_COMBINATIONS`, `ORDER_SIGNING_KEY`.
+**1. Clúster**
 
-## Guía de despliegue paso a paso
+```bash
+minikube start --driver=docker
+minikube addons enable metrics-server
+```
 
-1. **Publica la imagen** en Docker Hub con tag fijo (nunca `latest`):
+**2. Instalar Argo CD**
 
-   ```bash
-   docker login
-   docker build -t docker.io/<DOCKERHUB_USER>/zentinel-store:1.0.0 app/
-   docker run --rm -p 3000:3000 docker.io/<DOCKERHUB_USER>/zentinel-store:1.0.0   # prueba local
-   docker push docker.io/<DOCKERHUB_USER>/zentinel-store:1.0.0
-   ```
+```bash
+kubectl create namespace argocd
+kubectl apply -n argocd --server-side -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+```
 
-   El repositorio de la imagen debe ser **público**.
+**3. Acceso a la UI**
 
-2. **Crea el repositorio público** `Zentinel_ArgoCD_Kubernetes` en GitHub, reemplaza los marcadores y sube el código:
+```bash
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+```
 
-   ```bash
-   ./scripts/configure.sh <DOCKERHUB_USER> <GITHUB_USER>
-   git add -A && git commit -m "chore: configura usuarios"
-   git remote add origin https://github.com/<GITHUB_USER>/Zentinel_ArgoCD_Kubernetes.git
-   git push -u origin main
-   ```
+La UI queda en `https://localhost:8080`, usuario `admin`. La contraseña inicial se obtiene del secret `argocd-initial-admin-secret` en el namespace `argocd`.
 
-3. **Clúster:** `./scripts/01-setup-cluster.sh` (minikube con driver docker + metrics-server).
-4. **Argo CD:** `./scripts/02-install-argocd.sh`. Al terminar imprime cómo obtener la contraseña de `admin` y abrir la UI:
+**4. Registrar la aplicación**
 
-   ```bash
-   kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
-   kubectl -n argocd port-forward svc/argocd-server 8080:443     # https://localhost:8080
-   ```
+```bash
+kubectl apply -f argocd/application.yml
+```
 
-5. **Despliegue:** `./scripts/03-deploy-app.sh` aplica `argocd/application.yml` y espera `Synced` + `Healthy`.
+La Application usa Automated Sync con `prune` (borra del clúster lo que se elimina de Git) y `selfHeal` (revierte cambios manuales), y `CreateNamespace=true` para crear el namespace `zentinel`.
 
-## Acceso a la aplicación
+**5. Verificar**
+
+```bash
+kubectl get all,hpa -n zentinel
+```
+
+**6. Abrir la tienda**
 
 ```bash
 minikube service zentinel-store -n zentinel --url
 ```
 
-Con el driver `docker` en macOS/Windows el comando abre un túnel y **debe quedarse abierto**. En Linux también funciona `http://$(minikube ip):30080`. Rutas útiles: `/` (tienda), `/estado` (infraestructura), `/healthz`, `/readyz`, `/metrics`, `/api/system/info`.
+Con el driver `docker` en Windows y macOS, la terminal debe quedarse abierta mientras se usa la URL.
 
-## Probar el HPA
+## Probar GitOps
 
-```bash
-kubectl -n zentinel get hpa -w            # terminal 1
-kubectl -n zentinel get pods -w           # terminal 2
-./scripts/04-load-test.sh start 4         # terminal 3: 4 generadores de carga
-```
+1. Cambia un valor en `k8s/deployment.yml`, por ejemplo `APP_VERSION`.
+2. Haz commit y push a `main`.
+3. Argo CD detecta el cambio, sincroniza solo y ejecuta un rolling update sin caída. Puede tardar unos minutos en sondear el repositorio, o se puede pulsar Refresh en la UI.
 
-Los generadores son Pods `curlimages/curl` dentro del clúster que llaman en bucle a `POST /api/builder/recommend` (búsqueda combinatoria, uso real de CPU) y a búsquedas difusas en `/api/products`. Con `requests.cpu: 100m`, el HPA considera que hay que escalar al superar ~50 m de media por Pod, así que sube de **2 a 5 réplicas** (+2 cada 30 s). Mientras tanto, `/estado` mostrará los distintos Pods respondiendo.
+Se verifica en `/estado` (versión de los Pods nuevos) y con:
 
 ```bash
-./scripts/04-load-test.sh stop            # borra los generadores
+kubectl rollout status deployment/zentinel-store -n zentinel
 ```
 
-Tras ~60 s de estabilización, el HPA baja 1 Pod cada 30 s hasta volver a **2**. `./scripts/04-load-test.sh status` resume generadores, HPA y Pods.
+## Probar el autoescalado
 
-## Demostrar GitOps: cambio en Git → sincronización automática
+```bash
+./scripts/04-load-test.sh start 4      # crea 4 generadores de carga dentro del clúster
+```
 
-1. Con la UI de Argo CD abierta y la tienda en `/estado`, edita `k8s/deployment.yml`: cambia `APP_VERSION` de `"1.0.0"` a `"1.0.1"` (y el label de versión, si quieres coherencia). También puedes cambiar la imagen a otro tag fijo.
-2. `git commit -am "Demo GitOps: APP_VERSION 1.0.1" && git push`.
-3. Argo CD detecta el commit (por defecto sondea cada ~3 minutos; pulsa **Refresh** para verlo al instante), sincroniza solo y hace un *rolling update* sin caída (`maxUnavailable: 0`). Sin ejecutar ningún `kubectl apply`.
-4. El panel `/estado` pasa a mostrar la versión `1.0.1` en los Pods nuevos.
-5. **Self-heal:** `kubectl -n zentinel set env deploy/zentinel-store APP_ENV=manual` se revierte solo.
+Para observar:
 
-## Limpieza
+```bash
+kubectl get hpa -n zentinel -w
+kubectl top pods -n zentinel
+```
 
-`./scripts/99-cleanup.sh` elimina generadores, la Application, el namespace y, opcionalmente, detiene minikube.
+Resultado esperado: el HPA pasa de 2 a 4 y luego a 5 réplicas (máximo), con +2 Pods cada 30 s.
 
-## Troubleshooting
+```bash
+./scripts/04-load-test.sh stop         # elimina los generadores
+```
 
-**El HPA muestra `<unknown>/50%`.** Metrics Server aún no tiene datos o no está activo. Revisa `kubectl top nodes` y `kubectl -n kube-system get pods | grep metrics-server`; si hace falta, `minikube addons enable metrics-server` y espera 1–2 minutos. Los Pods deben tener `resources.requests.cpu` (ya está). Diagnóstico: `kubectl -n zentinel describe hpa zentinel-store`.
+Tras la ventana de estabilización, el HPA vuelve a 2 réplicas.
 
-**`ImagePullBackOff` / `ErrImagePull`.** Confirma que no queda el marcador `erickg10` en `k8s/deployment.yml` (ejecuta `configure.sh` y haz push), que el usuario, el nombre y el tag coinciden con lo publicado y que el repositorio de Docker Hub es público. Diagnóstico: `kubectl -n zentinel describe pod <pod>`.
+En Windows con Git Bash, anteponer `MSYS_NO_PATHCONV=1` al script:
 
-**El NodePort no responde con minikube y el driver docker.** En macOS/Windows la IP de minikube no es accesible desde el host: usa `minikube service zentinel-store -n zentinel --url` y deja esa terminal abierta. Alternativa: `kubectl -n zentinel port-forward svc/zentinel-store 8081:80`.
+```bash
+MSYS_NO_PATHCONV=1 ./scripts/04-load-test.sh start 4
+```
 
-**La aplicación aparece `OutOfSync` por las réplicas.** El HPA cambia `spec.replicas` mientras Git declara `2`. Por eso `argocd/application.yml` incluye `ignoreDifferences` sobre `/spec/replicas` y la opción `RespectIgnoreDifferences=true`. Si persiste, reaplica `kubectl apply -f argocd/application.yml` y pulsa **Refresh**.
+## Solución de problemas
 
-**`/estado` solo muestra un Pod.** Normal con una sola réplica. Con varias, el endpoint responde `Connection: close` para que cada sondeo abra una conexión nueva, porque kube-proxy balancea por conexión TCP y no por petición.
+| Síntoma | Causa y solución |
+|---|---|
+| `Metrics API not available` | Metrics Server aún no tiene datos. Esperar 1-2 minutos tras habilitarlo. |
+| App en `Degraded` o Pods `0/1` al inicio | Transitorio mientras pasa el startup probe. |
+| Generadores en `StartError` en Git Bash | Conversión de rutas de MSYS. Usar `MSYS_NO_PATHCONV=1`. |
+| `minikube` o `kubectl` no reconocidos tras instalar | Reiniciar la terminal o refrescar el PATH. |
 
-**Los comprobantes no se validan en otro Pod.** Falta `ORDER_SIGNING_KEY` y cada Pod usó una clave efímera: define la misma clave en todas las réplicas.
+## Tecnologías
 
-## Licencia
-
-MIT. Catálogo y precios ficticios con fines académicos.
+Node.js, TypeScript, Express, React, Vite, Docker, Kubernetes, Argo CD, minikube, Metrics Server.
